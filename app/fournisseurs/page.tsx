@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,16 +9,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { SupplierForm } from "@/components/ui/supplier-form";
 import { Supplier } from "@/types";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { suppliers } from "@/lib/mock-data";
+import { getSuppliers, addSupplier, updateSupplier, deleteSupplier } from "@/lib/api";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
 export default function FournisseursPage() {
-  const [suppliersList, setSuppliersList] = useState<Supplier[]>(suppliers);
+  const [suppliersList, setSuppliersList] = useState<Supplier[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>(undefined);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
+
+  useEffect(() => {
+    getSuppliers().then(setSuppliersList);
+  }, []);
 
   const columns = [
     {
@@ -28,7 +32,7 @@ export default function FournisseursPage() {
     {
       accessorKey: "telephone",
       header: "Téléphone",
-      cell: ({ row }) => {
+      cell: ({ row }: { row: { original: Supplier } }) => {
         return (
           <div className="flex items-center">
             <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -40,7 +44,7 @@ export default function FournisseursPage() {
     {
       accessorKey: "email",
       header: "Email",
-      cell: ({ row }) => {
+      cell: ({ row }: { row: { original: Supplier } }) => {
         return (
           <div className="flex items-center">
             <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -56,13 +60,17 @@ export default function FournisseursPage() {
     {
       accessorKey: "created_at",
       header: "Date d'ajout",
-      cell: ({ row }) => {
-        return format(new Date(row.original.created_at), "dd/MM/yyyy", { locale: fr });
+      cell: ({ row }: { row: { original: Supplier } }) => {
+        const date = row.original.created_at;
+        if (!date) return "-";
+        const parsedDate = new Date(date);
+        if (isNaN(parsedDate.getTime())) return "-";
+        return format(parsedDate, "dd/MM/yyyy", { locale: fr });
       },
     },
     {
       id: "actions",
-      cell: ({ row }) => {
+      cell: ({ row }: { row: { original: Supplier } }) => {
         const supplier = row.original;
         return (
           <div className="flex items-center gap-2">
@@ -86,55 +94,25 @@ export default function FournisseursPage() {
     },
   ];
 
-  const handleAddSupplier = (values: any) => {
-    const newSupplier: Supplier = {
-      fournisseur_id: `f${Math.floor(Math.random() * 10000)}`,
-      nom: values.nom,
-      telephone: values.telephone,
-      adresse: values.adresse,
-      email: values.email,
-      created_at: new Date().toISOString(),
-    };
-    
-    setSuppliersList([...suppliersList, newSupplier]);
+  function handleAddSupplier(values: Omit<Supplier, "fournisseur_id"|"created_at">) {
+    addSupplier(values).then((newSupplier) => setSuppliersList((list) => [...list, newSupplier]));
     setIsAddDialogOpen(false);
-  };
+  }
 
-  const handleEditClick = (supplier: Supplier) => {
+  function handleEditClick(supplier: Supplier) {
     setSelectedSupplier(supplier);
     setIsEditDialogOpen(true);
-  };
+  }
 
-  const handleEditSupplier = (values: any) => {
-    if (!selectedSupplier) return;
-    
-    const updatedSuppliers = suppliersList.map((sup) => {
-      if (sup.fournisseur_id === selectedSupplier.fournisseur_id) {
-        return {
-          ...sup,
-          nom: values.nom,
-          telephone: values.telephone,
-          adresse: values.adresse,
-          email: values.email,
-        };
-      }
-      return sup;
-    });
-    
-    setSuppliersList(updatedSuppliers);
+  function handleEditSupplier(id: string, values: Omit<Supplier, "fournisseur_id"|"created_at">) {
+    updateSupplier(id, values).then((updatedSupplier) => setSuppliersList((list) => list.map(s => s.fournisseur_id === id ? updatedSupplier : s)));
     setIsEditDialogOpen(false);
-  };
+  }
 
-  const handleDeleteSupplier = () => {
-    if (!supplierToDelete) return;
-    
-    const updatedSuppliers = suppliersList.filter(
-      (sup) => sup.fournisseur_id !== supplierToDelete.fournisseur_id
-    );
-    
-    setSuppliersList(updatedSuppliers);
+  function handleDeleteSupplier(id: string) {
+    deleteSupplier(id).then(() => setSuppliersList((list) => list.filter(s => s.fournisseur_id !== id)));
     setSupplierToDelete(null);
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -188,7 +166,7 @@ export default function FournisseursPage() {
           {selectedSupplier && (
             <SupplierForm
               supplier={selectedSupplier}
-              onSubmit={handleEditSupplier}
+              onSubmit={(values) => handleEditSupplier(selectedSupplier.fournisseur_id, values)}
               onCancel={() => setIsEditDialogOpen(false)}
             />
           )}
@@ -210,7 +188,7 @@ export default function FournisseursPage() {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction 
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleDeleteSupplier}
+              onClick={() => handleDeleteSupplier(supplierToDelete!.fournisseur_id)}
             >
               Supprimer
             </AlertDialogAction>

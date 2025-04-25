@@ -23,8 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Medication, Supplier } from "@/types";
-import { suppliers } from "@/lib/mock-data";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getSuppliers } from "@/lib/api";
 import { CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -70,6 +70,11 @@ export function MedicationForm({
   const [date, setDate] = useState<Date | undefined>(
     medication?.date_expiration ? new Date(medication.date_expiration) : undefined
   );
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+
+  useEffect(() => {
+    getSuppliers().then(setSuppliers);
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -141,7 +146,7 @@ export function MedicationForm({
               <FormItem>
                 <FormLabel>Quantité en stock</FormLabel>
                 <FormControl>
-                  <Input type="number" min="0" {...field} />
+                  <Input type="number" min="0" {...field} readOnly={!!medication} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -212,7 +217,7 @@ export function MedicationForm({
                 <FormLabel>Fournisseur</FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>

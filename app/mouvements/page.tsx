@@ -1,21 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PackageSearch, Plus, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { StockMovementForm } from "@/components/ui/stock-movement-form";
-import { StockMovement } from "@/types";
+import { StockMovement, Medication } from "@/types";
 import { Badge } from "@/components/ui/badge";
-import { stockMovements, getMedicationById, getStockMovementsWithNames } from "@/lib/mock-data";
+import { getStockMovements, addStockMovement, updateStockMovement, deleteStockMovement, getMedications } from "@/lib/api";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
 export default function MouvementsPage() {
-  const [movementsList, setMovementsList] = useState<StockMovement[]>(getStockMovementsWithNames());
+  const [movementsList, setMovementsList] = useState<StockMovement[]>([]);
+  const [medicationsList, setMedicationsList] = useState<Medication[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  useEffect(() => {
+    getStockMovements().then(setMovementsList);
+    getMedications().then(setMedicationsList);
+  }, []);
 
   const columns = [
     {
@@ -25,7 +31,7 @@ export default function MouvementsPage() {
     {
       accessorKey: "type_mouvement",
       header: "Type",
-      cell: ({ row }) => {
+      cell: ({ row }: { row: { original: StockMovement } }) => {
         const type = row.original.type_mouvement;
         return (
           <div className="flex items-center">
@@ -55,27 +61,29 @@ export default function MouvementsPage() {
     {
       accessorKey: "date_mouvement",
       header: "Date",
-      cell: ({ row }) => {
+      cell: ({ row }: { row: { original: StockMovement } }) => {
         return format(new Date(row.original.date_mouvement), "dd/MM/yyyy HH:mm", { locale: fr });
       },
     },
   ];
 
-  const handleAddMovement = (values: any) => {
-    const medication = getMedicationById(values.medicament_id);
-    
-    const newMovement: StockMovement = {
-      mouvement_id: `mv${Math.floor(Math.random() * 10000)}`,
-      medicament_id: values.medicament_id,
-      medicament_nom: medication?.nom || "Inconnu",
-      type_mouvement: values.type_mouvement,
-      quantite: values.quantite,
+  function handleAddMovement(values: { medicament_id: string; type_mouvement: "entrée" | "sortie"; quantite: number; date_mouvement: Date; }) {
+    const payload = {
+      ...values,
       date_mouvement: values.date_mouvement.toISOString(),
     };
-    
-    setMovementsList([newMovement, ...movementsList]);
+    addStockMovement(payload as Omit<StockMovement, "mouvement_id">).then((newMovement) => setMovementsList((list) => [...list, newMovement]));
     setIsAddDialogOpen(false);
-  };
+  }
+
+  function handleEditMovement(id: string, values: { medicament_id: string; type_mouvement: "entrée" | "sortie"; quantite: number; date_mouvement: Date; }) {
+    const payload = {
+      ...values,
+      date_mouvement: values.date_mouvement.toISOString(),
+    };
+    updateStockMovement(id, payload as Partial<StockMovement>).then((updated) => setMovementsList((list) => list.map(m => m.mouvement_id === id ? updated : m)));
+    setIsAddDialogOpen(false);
+  }
 
   return (
     <div className="space-y-6">

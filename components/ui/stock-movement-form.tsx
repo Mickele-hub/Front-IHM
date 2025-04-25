@@ -22,8 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StockMovement, Medication } from "@/types";
-import { useState } from "react";
-import { medications } from "@/lib/mock-data";
+import { useState, useEffect } from "react";
+import { getMedications } from "@/lib/api";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
@@ -57,7 +57,12 @@ export function StockMovementForm({
   onCancel,
 }: StockMovementFormProps) {
   const [date, setDate] = useState<Date | undefined>(new Date());
-  
+  const [medications, setMedications] = useState<Medication[]>([]);
+
+  useEffect(() => {
+    getMedications().then(setMedications);
+  }, []);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -84,7 +89,7 @@ export function StockMovementForm({
                 <FormLabel>Médicament</FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -92,9 +97,9 @@ export function StockMovementForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {medications.map((medication) => (
-                      <SelectItem key={medication.medicament_id} value={medication.medicament_id}>
-                        {medication.nom} - {medication.reference}
+                    {medications.map((med) => (
+                      <SelectItem key={med.medicament_id} value={med.medicament_id}>
+                        {med.nom}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -113,24 +118,20 @@ export function StockMovementForm({
                 <FormControl>
                   <RadioGroup
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
                     className="flex flex-col space-y-1"
                   >
                     <FormItem className="flex items-center space-x-3 space-y-0">
                       <FormControl>
-                        <RadioGroupItem value="entrée" />
+                        <RadioGroupItem value="entrée" id="entree" />
                       </FormControl>
-                      <FormLabel className="font-normal">
-                        Entrée de stock
-                      </FormLabel>
+                      <FormLabel htmlFor="entree">Entrée de stock</FormLabel>
                     </FormItem>
                     <FormItem className="flex items-center space-x-3 space-y-0">
                       <FormControl>
-                        <RadioGroupItem value="sortie" />
+                        <RadioGroupItem value="sortie" id="sortie" />
                       </FormControl>
-                      <FormLabel className="font-normal">
-                        Sortie de stock
-                      </FormLabel>
+                      <FormLabel htmlFor="sortie">Sortie de stock</FormLabel>
                     </FormItem>
                   </RadioGroup>
                 </FormControl>
