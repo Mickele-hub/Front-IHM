@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useEffect, useState } from "react";
 import {
@@ -28,6 +28,7 @@ import {
   AlertCircle,
   Calendar,
   DollarSign,
+  LogOut as LogOutIcon,
 } from "lucide-react";
 import { StockCard } from "@/components/stock-card";
 import { Button } from "@/components/ui/button";
@@ -49,8 +50,8 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { StockStatusBadge } from "@/components/stock-status-badge";
+import { useRouter } from "next/navigation";
 
-// Data for charts
 const stockMovementData = [
   { name: "Jan", entrées: 40, sorties: 24 },
   { name: "Fév", entrées: 30, sorties: 25 },
@@ -61,6 +62,8 @@ const stockMovementData = [
 ];
 
 export default function Home() {
+  const router = useRouter();
+
   const [stats, setStats] = useState(getDashboardStats());
   const [lowStock, setLowStock] = useState(getLowStockMedications());
   const [expiring, setExpiring] = useState(getExpiringMedications());
@@ -68,6 +71,11 @@ export default function Home() {
     getRecentStockMovements(5)
   );
   const [categories, setCategories] = useState(getTopCategories());
+
+  const handleLogout = () => {
+    localStorage.removeItem('isAuthenticated');
+    router.push('/login');
+  };
 
   const lowStockColumns = [
     {
@@ -151,9 +159,19 @@ export default function Home() {
             <Calendar className="mr-2 h-4 w-4" />
             {format(new Date(), "dd MMMM yyyy", { locale: fr })}
           </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleLogout}
+            className="flex items-center gap-2"
+          >
+            <LogOutIcon className="h-4 w-4" />
+            Déconnexion
+          </Button>
         </div>
       </div>
 
+      {/* le reste inchangé */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StockCard
           title="Médicaments"
@@ -181,7 +199,9 @@ export default function Home() {
         />
       </div>
 
+      {/* Graphiques et tableaux comme avant */}
       <div className="grid gap-4 md:grid-cols-2">
+        {/* Bar Chart */}
         <Card className="col-span-2 md:col-span-1">
           <CardHeader>
             <CardTitle>Mouvements de stock</CardTitle>
@@ -209,6 +229,7 @@ export default function Home() {
           </CardContent>
         </Card>
 
+        {/* Pie Chart */}
         <Card className="col-span-2 md:col-span-1">
           <CardHeader>
             <CardTitle>Répartition par catégorie</CardTitle>
@@ -248,6 +269,7 @@ export default function Home() {
         </Card>
       </div>
 
+      {/* Tableaux */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="col-span-2">
           <CardHeader>
@@ -257,18 +279,13 @@ export default function Home() {
             <Tabs defaultValue="low-stock">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="low-stock">Stock faible</TabsTrigger>
-                <TabsTrigger value="recent-movements">
-                  Mouvements récents
-                </TabsTrigger>
+                <TabsTrigger value="recent-movements">Mouvements récents</TabsTrigger>
               </TabsList>
               <TabsContent value="low-stock">
                 <DataTable columns={lowStockColumns} data={lowStock} />
               </TabsContent>
               <TabsContent value="recent-movements">
-                <DataTable
-                  columns={recentMovementsColumns}
-                  data={recentMovements}
-                />
+                <DataTable columns={recentMovementsColumns} data={recentMovements} />
               </TabsContent>
             </Tabs>
           </CardContent>
