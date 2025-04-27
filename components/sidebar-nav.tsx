@@ -18,6 +18,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
+import { NotificationBell } from '@/components/ui/notification-bell';
+import { DialogTitle } from '@/components/ui/dialog';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {}
 
@@ -79,22 +81,35 @@ export function SidebarNav({ className }: SidebarNavProps) {
     <>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild className="md:hidden">
-          <Button variant="outline" size="icon" className="absolute left-4 top-4">
+          <Button variant="outline" size="icon" className="absolute left-4 top-4 z-50">
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle Menu</span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="p-0 pt-10">
+        <SheetContent side="left" className="p-0 pt-10 w-64 max-w-full flex flex-col">
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-center py-4 border-b">
-              <PackageCheck className="h-6 w-6 text-primary mr-2" />
+              <PackageCheck className="h-6 w-6 mr-2" />
               <span className="font-semibold">PharmStock</span>
             </div>
-            <ScrollArea className="flex-1">
-              <div className="py-4">
-                <NavLinks />
+            <div className="sr-only">
+              <DialogTitle>Menu principal</DialogTitle>
+            </div>
+            <div className="flex flex-col gap-4 h-full">
+              <div className="flex flex-row items-center justify-between px-4 py-2">
+                <span className="font-bold text-lg">Menu</span>
               </div>
-            </ScrollArea>
+              <ScrollArea className="flex-1 min-h-0">
+                <div className="py-4">
+                  <NavLinks />
+                </div>
+              </ScrollArea>
+              <div className="flex justify-start my-6 pl-2">
+                <div className="h-7 w-7">
+                  <NotificationBell />
+                </div>
+              </div>
+            </div>
             <div className="flex items-center justify-between p-4 border-t">
               <span className="text-sm text-muted-foreground">v1.0.0</span>
               <ThemeToggle />
@@ -106,13 +121,21 @@ export function SidebarNav({ className }: SidebarNavProps) {
       <div className={cn("hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0", className)}>
         <div className="flex-1 flex flex-col min-h-0 border-r">
           <div className="flex items-center h-16 justify-center px-4 border-b">
-            <PackageCheck className="h-6 w-6 text-primary mr-2" />
+            <PackageCheck className="h-6 w-6 mr-2" />
             <span className="font-semibold">PharmStock</span>
           </div>
-          <div className="flex-1 flex flex-col pt-5">
-            <ScrollArea>
+          <div className="flex flex-col gap-4 h-full">
+            <div className="flex flex-row items-center justify-between px-4 py-2">
+              <span className="font-bold text-lg">Menu</span>
+            </div>
+            <ScrollArea className="flex-1">
               <NavLinks />
             </ScrollArea>
+            <div className="flex justify-start my-6 pl-2">
+              <div className="h-7 w-7">
+                <NotificationBell />
+              </div>
+            </div>
           </div>
           <div className="flex items-center justify-between p-4 border-t">
             <span className="text-sm text-muted-foreground">v1.0.0</span>

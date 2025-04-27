@@ -12,8 +12,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { getSuppliers, addSupplier, updateSupplier, deleteSupplier } from "@/lib/api";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useNotifications } from '@/context/notifications-context';
+import { toast } from '@/hooks/use-toast';
 
 export default function FournisseursPage() {
+  const { addNotification } = useNotifications();
   const [suppliersList, setSuppliersList] = useState<Supplier[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>(undefined);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -95,7 +98,19 @@ export default function FournisseursPage() {
   ];
 
   function handleAddSupplier(values: Omit<Supplier, "fournisseur_id"|"created_at">) {
-    addSupplier(values).then((newSupplier) => setSuppliersList((list) => [...list, newSupplier]));
+    addSupplier(values).then((newSupplier) => {
+      setSuppliersList((list) => [...list, newSupplier]);
+      addNotification({
+        type: 'fournisseur_add',
+        title: `Nouveau fournisseur ajouté`,
+        description: `Le fournisseur "${newSupplier.nom}" a été ajouté avec succès !`
+      });
+      toast({
+        title: 'Ajout réussi',
+        description: `Le fournisseur "${newSupplier.nom}" a bien été ajouté.`,
+        variant: 'success',
+      });
+    });
     setIsAddDialogOpen(false);
   }
 
@@ -105,12 +120,36 @@ export default function FournisseursPage() {
   }
 
   function handleEditSupplier(id: string, values: Omit<Supplier, "fournisseur_id"|"created_at">) {
-    updateSupplier(id, values).then((updatedSupplier) => setSuppliersList((list) => list.map(s => s.fournisseur_id === id ? updatedSupplier : s)));
+    updateSupplier(id, values).then((updatedSupplier) => {
+      setSuppliersList((list) => list.map(s => s.fournisseur_id === id ? updatedSupplier : s));
+      addNotification({
+        type: 'fournisseur_edit',
+        title: `Fournisseur modifié`,
+        description: `Le fournisseur "${updatedSupplier.nom}" a été modifié avec succès !`
+      });
+      toast({
+        title: 'Modification réussie',
+        description: `Le fournisseur "${updatedSupplier.nom}" a bien été modifié.`,
+        variant: 'success',
+      });
+    });
     setIsEditDialogOpen(false);
   }
 
   function handleDeleteSupplier(id: string) {
-    deleteSupplier(id).then(() => setSuppliersList((list) => list.filter(s => s.fournisseur_id !== id)));
+    deleteSupplier(id).then(() => {
+      setSuppliersList((list) => list.filter(s => s.fournisseur_id !== id));
+      addNotification({
+        type: 'fournisseur_delete',
+        title: `Fournisseur supprimé`,
+        description: `Le fournisseur a été supprimé avec succès !`
+      });
+      toast({
+        title: 'Suppression réussie',
+        description: `Le fournisseur a bien été supprimé.`,
+        variant: 'success',
+      });
+    });
     setSupplierToDelete(null);
   }
 

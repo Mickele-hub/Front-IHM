@@ -18,7 +18,7 @@ export async function addSupplier(data: Omit<Supplier, "fournisseur_id"|"created
 }
 export async function updateSupplier(id: string, data: Partial<Supplier>): Promise<Supplier> {
   const res = await fetch(`${API_BASE}/fournisseurs/${id}`, {
-    method: "PUT",
+    method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
@@ -43,7 +43,7 @@ export async function addMedication(data: Omit<Medication, "medicament_id"|"crea
 }
 export async function updateMedication(id: string, data: Partial<Medication>): Promise<Medication> {
   const res = await fetch(`${API_BASE}/medicaments/${id}`, {
-    method: "PUT",
+    method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });

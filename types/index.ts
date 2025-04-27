@@ -17,6 +17,7 @@ export interface Medication {
   prix: number;
   fournisseur_id: string;
   created_at: string;
+  fournisseur?: Supplier;
 }
 
 export interface StockMovement {

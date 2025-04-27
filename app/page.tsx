@@ -33,13 +33,7 @@ import { StockCard } from "@/components/stock-card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
-import {
-  getDashboardStats,
-  getLowStockMedications,
-  getExpiringMedications,
-  getRecentStockMovements,
-  getTopCategories,
-} from "@/lib/mock-data";
+import { getMedications, getSuppliers, getStockMovements } from "@/lib/api";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -50,24 +44,36 @@ import {
 } from "@/components/ui/tabs";
 import { StockStatusBadge } from "@/components/stock-status-badge";
 
-// Data for charts
-const stockMovementData = [
-  { name: "Jan", entrées: 40, sorties: 24 },
-  { name: "Fév", entrées: 30, sorties: 25 },
-  { name: "Mar", entrées: 45, sorties: 35 },
-  { name: "Avr", entrées: 50, sorties: 40 },
-  { name: "Mai", entrées: 35, sorties: 30 },
-  { name: "Juin", entrées: 60, sorties: 45 },
-];
-
 export default function Home() {
-  const [stats, setStats] = useState(getDashboardStats());
-  const [lowStock, setLowStock] = useState(getLowStockMedications());
-  const [expiring, setExpiring] = useState(getExpiringMedications());
-  const [recentMovements, setRecentMovements] = useState(
-    getRecentStockMovements(5)
-  );
-  const [categories, setCategories] = useState(getTopCategories());
+  const [stats, setStats] = useState<any>(null);
+  const [lowStock, setLowStock] = useState<any[]>([]);
+  const [expiring, setExpiring] = useState<any[]>([]);
+  const [recentMovements, setRecentMovements] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function fetchData() {
+      // Récupère toutes les données réelles de la base
+      const [meds, sups, mouvements] = await Promise.all([
+        getMedications(),
+        getSuppliers(),
+        getStockMovements()
+      ]);
+      // Exemples de stats logiques
+      setStats({
+        totalMedications: meds.length,
+        totalSuppliers: sups.length,
+        totalMovements: mouvements.length,
+        lowStockCount: meds.filter(m => m.stock < 10).length,
+        stockValue: meds.reduce((total, med) => total + (Number(med.prix) * Number(med.stock)), 0),
+        allMedications: meds
+      });
+      setLowStock(meds.filter(m => m.stock < 10));
+      setRecentMovements(mouvements.slice(-5).reverse());
+      // Ajoute ici d'autres calculs selon tes besoins
+    }
+    fetchData();
+  }, []);
 
   const lowStockColumns = [
     {
@@ -95,7 +101,8 @@ export default function Home() {
       accessorKey: "prix",
       header: "Prix (€)",
       cell: ({ row }: { row: any }) => {
-        return <div>{row.original.prix.toFixed(2)} €</div>;
+        const prix = Number(row.original.prix);
+        return <div>{!isNaN(prix) ? prix.toFixed(2) : '-'} €</div>;
       },
     },
   ];
@@ -137,10 +144,35 @@ export default function Home() {
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
 
-  const categoryData = categories.map((cat) => ({
-    name: cat.categorie,
-    value: cat.count,
-  }));
+  // Génère dynamiquement les données pour les graphiques
+  const stockMovementData = Array.from({ length: 6 }).map((_, i) => {
+    // Calcule le mois (0 = janvier)
+    const month = new Date().getMonth() - 5 + i;
+    const year = new Date().getFullYear();
+    const monthDate = new Date(year, month, 1);
+    const name = monthDate.toLocaleString('fr-FR', { month: 'short' });
+    // Filtre les mouvements du mois
+    const mouvementsMois = recentMovements.filter(mov => {
+      const movDate = new Date(mov.date_mouvement);
+      return movDate.getMonth() === monthDate.getMonth() && movDate.getFullYear() === monthDate.getFullYear();
+    });
+    return {
+      name,
+      entrées: mouvementsMois.filter(m => m.type_mouvement === 'entrée').reduce((acc, m) => acc + Number(m.quantite), 0),
+      sorties: mouvementsMois.filter(m => m.type_mouvement === 'sortie').reduce((acc, m) => acc + Number(m.quantite), 0),
+    };
+  });
+
+  // Catégories dynamiques : total de stock par catégorie (TOUS les médicaments)
+  const categoryData = Array.isArray(stats) ? [] :
+    (stats && Array.isArray(stats.allMedications) && stats.allMedications[0]?.categorie
+      ? Object.entries(
+          stats.allMedications.reduce((acc: Record<string, number>, med: any) => {
+            acc[med.categorie] = (acc[med.categorie] || 0) + Number(med.stock || 0);
+            return acc;
+          }, {} as Record<string, number>)
+        ).map(([categorie, value]) => ({ name: categorie, value }))
+      : []);
 
   return (
     <div className="space-y-6">
@@ -157,25 +189,25 @@ export default function Home() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StockCard
           title="Médicaments"
-          value={stats.totalMedications}
+          value={stats?.totalMedications}
           icon={Pills}
           className="bg-blue-50 dark:bg-blue-950/30"
         />
         <StockCard
           title="Fournisseurs"
-          value={stats.totalSuppliers}
+          value={stats?.totalSuppliers}
           icon={TruckIcon}
           className="bg-green-50 dark:bg-green-950/30"
         />
         <StockCard
           title="Stock critique"
-          value={stats.lowStockCount}
+          value={stats?.lowStockCount}
           icon={AlertCircle}
           className="bg-amber-50 dark:bg-amber-950/30"
         />
         <StockCard
           title="Valeur du stock"
-          value={`${stats.stockValue.toFixed(2)} €`}
+          value={`${stats?.stockValue?.toFixed(2)} €`}
           icon={DollarSign}
           className="bg-indigo-50 dark:bg-indigo-950/30"
         />
@@ -248,32 +280,7 @@ export default function Home() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="col-span-2">
-          <CardHeader>
-            <CardTitle>Alertes et mouvements récents</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="low-stock">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="low-stock">Stock faible</TabsTrigger>
-                <TabsTrigger value="recent-movements">
-                  Mouvements récents
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="low-stock">
-                <DataTable columns={lowStockColumns} data={lowStock} />
-              </TabsContent>
-              <TabsContent value="recent-movements">
-                <DataTable
-                  columns={recentMovementsColumns}
-                  data={recentMovements}
-                />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      </div>
+      
     </div>
   );
 }

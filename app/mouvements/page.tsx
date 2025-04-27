@@ -12,8 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { getStockMovements, addStockMovement, updateStockMovement, deleteStockMovement, getMedications } from "@/lib/api";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useNotifications } from '@/context/notifications-context';
+import { toast } from '@/hooks/use-toast';
 
 export default function MouvementsPage() {
+  const { addNotification } = useNotifications();
   const [movementsList, setMovementsList] = useState<StockMovement[]>([]);
   const [medicationsList, setMedicationsList] = useState<Medication[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -27,6 +30,10 @@ export default function MouvementsPage() {
     {
       accessorKey: "medicament_nom",
       header: "Médicament",
+      cell: ({ row }: { row: { original: StockMovement } }) =>
+        row.original.medicament?.nom ||
+        medicationsList.find(m => String(m.medicament_id) === String(row.original.medicament_id))?.nom ||
+        "-",
     },
     {
       accessorKey: "type_mouvement",
@@ -62,7 +69,11 @@ export default function MouvementsPage() {
       accessorKey: "date_mouvement",
       header: "Date",
       cell: ({ row }: { row: { original: StockMovement } }) => {
-        return format(new Date(row.original.date_mouvement), "dd/MM/yyyy HH:mm", { locale: fr });
+        const rawDate = row.original.date_mouvement;
+        const date = rawDate ? new Date(rawDate) : null;
+        return date && !isNaN(date.getTime())
+          ? format(date, "dd/MM/yyyy HH:mm", { locale: fr })
+          : "-";
       },
     },
   ];
@@ -72,7 +83,23 @@ export default function MouvementsPage() {
       ...values,
       date_mouvement: values.date_mouvement.toISOString(),
     };
-    addStockMovement(payload as Omit<StockMovement, "mouvement_id">).then((newMovement) => setMovementsList((list) => [...list, newMovement]));
+    addStockMovement(payload as Omit<StockMovement, "mouvement_id">).then((newMovement) => {
+      setMovementsList((list) => [...list, newMovement]);
+      const medName = newMovement.medicament?.nom ||
+        medicationsList.find(m => String(m.medicament_id) === String(newMovement.medicament_id))?.nom ||
+        '';
+      toast({
+        title: `Mouvement de stock enregistré !`,
+        description: `Une ${newMovement.type_mouvement === 'entrée' ? 'entrée' : 'sortie'} de ${newMovement.quantite} unité(s) pour le médicament ${medName} a été enregistrée.`,
+        variant: newMovement.type_mouvement === 'entrée' ? undefined : 'destructive',
+      });
+      addNotification({
+        type: "mouvement",
+        title: `Mouvement de stock (${newMovement.type_mouvement === 'entrée' ? 'Entrée' : 'Sortie'})`,
+        description: `${newMovement.type_mouvement === 'entrée' ? 'Entrée' : 'Sortie'} de ${newMovement.quantite} unité(s) pour le médicament ${medName}`,
+      });
+      getStockMovements().then(setMovementsList);
+    });
     setIsAddDialogOpen(false);
   }
 
@@ -87,7 +114,7 @@ export default function MouvementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8 gap-6">
         <div className="flex items-center">
           <PackageSearch className="h-6 w-6 mr-2" />
           <h1 className="text-2xl font-bold tracking-tight">Mouvements de stock</h1>
@@ -95,7 +122,7 @@ export default function MouvementsPage() {
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4 mr-2 gap-2" />
               Nouveau mouvement
             </Button>
           </DialogTrigger>
@@ -122,8 +149,6 @@ export default function MouvementsPage() {
           <DataTable
             columns={columns}
             data={movementsList}
-            searchColumn="medicament_nom"
-            searchPlaceholder="Rechercher un médicament..."
           />
         </CardContent>
       </Card>

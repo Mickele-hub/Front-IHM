@@ -8,13 +8,25 @@ import { Pill, Plus, PenSquare, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MedicationForm } from "@/components/ui/medication-form";
 import { Medication } from "@/types";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { getMedications, addMedication, updateMedication, deleteMedication, getSuppliers } from "@/lib/api";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { StockStatusBadge } from "@/components/stock-status-badge";
+import { useNotifications } from '@/context/notifications-context';
+import { toast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction
+} from "@/components/ui/alert-dialog";
 
 export default function MedicamentsPage() {
+  const { addNotification } = useNotifications();
   const [medicationsList, setMedicationsList] = useState<Medication[]>([]);
   const [suppliersList, setSuppliersList] = useState<any[]>([]);
   const [selectedMedication, setSelectedMedication] = useState<Medication | undefined>(undefined);
@@ -23,7 +35,20 @@ export default function MedicamentsPage() {
   const [medicationToDelete, setMedicationToDelete] = useState<Medication | null>(null);
 
   useEffect(() => {
-    getMedications().then(setMedicationsList);
+    getMedications().then((meds) => {
+      setMedicationsList(meds);
+      // Notification stock critique
+      const crit = meds.filter((m) => m.stock < 10);
+      if (crit.length > 0) {
+        crit.forEach((m) => {
+          addNotification({
+            type: 'stock_critique',
+            title: `Stock critique !`,
+            description: `Le médicament "${m.nom}" a un stock faible (${m.stock} unités).`
+          });
+        });
+      }
+    });
     getSuppliers().then(setSuppliersList);
   }, []);
 
@@ -68,7 +93,8 @@ export default function MedicamentsPage() {
       accessorKey: "prix",
       header: "Prix (€)",
       cell: ({ row }: { row: { original: Medication } }) => {
-        const prix = row.original.prix;
+        // Correction : forcer la conversion en nombre pour éviter les erreurs
+        const prix = Number(row.original.prix);
         if (typeof prix !== "number" || isNaN(prix)) return "-";
         return <div>{prix.toFixed(2)} €</div>;
       },
@@ -77,8 +103,9 @@ export default function MedicamentsPage() {
       accessorKey: "fournisseur_id",
       header: "Fournisseur",
       cell: ({ row }: { row: { original: Medication } }) => {
-        const supplier = suppliersList.find((supplier) => supplier.id === row.original.fournisseur_id);
-        return supplier?.nom || "Inconnu";
+        // Affichage simple du nom du fournisseur depuis la relation
+        // @ts-ignore
+        return row.original.fournisseur?.nom || "Inconnu";
       },
     },
     {
@@ -119,21 +146,73 @@ export default function MedicamentsPage() {
   ];
 
   function handleAddMedication(values: { nom: string; reference: string; categorie: string; stock: number; date_expiration: Date; prix: number; fournisseur_id: string; }) {
+    // LOG pour debug
+    console.log('Valeurs soumises à l\'API:', values);
     const payload = {
       ...values,
       date_expiration: values.date_expiration.toISOString().split('T')[0],
     };
-    addMedication(payload as Omit<Medication, "medicament_id"|"created_at">).then((newMedication) => setMedicationsList((list) => [...list, newMedication]));
+    addMedication(payload as Omit<Medication, "medicament_id"|"created_at">).then((newMed) => {
+      console.log('Réponse API après ajout:', newMed);
+      getMedications().then(setMedicationsList); // Rafraîchit la liste depuis la base
+      if (values.stock < 10) {
+        addNotification({
+          type: 'stock_critique',
+          title: `Stock critique !`,
+          description: `Le médicament "${values.nom}" a un stock faible (${values.stock} unités).`
+        });
+      }
+      addNotification({
+        type: 'success',
+        title: `Ajout réussi`,
+        description: `Le médicament "${values.nom}" a bien été ajouté.`
+      });
+      toast({
+        title: `Ajout réussi`,
+        description: `Le médicament "${values.nom}" a bien été ajouté.`
+      });
+    });
     setIsAddDialogOpen(false);
   }
 
   function handleEditMedication(id: string, values: { nom: string; reference: string; categorie: string; stock: number; date_expiration: Date; prix: number; fournisseur_id: string; }) {
+    // Correction : prépare bien la relation fournisseur
     const payload = {
       ...values,
       date_expiration: values.date_expiration.toISOString().split('T')[0],
     };
-    updateMedication(id, payload as Partial<Medication>).then((updated) => setMedicationsList((list) => list.map(m => m.medicament_id === id ? updated : m)));
+    updateMedication(id, payload as Partial<Medication>).then((updatedMed) => {
+      // Optionnel : log pour debug
+      console.log('Réponse API après édition:', updatedMed);
+      getMedications().then(setMedicationsList); // Rafraîchit la liste depuis la base
+      addNotification({
+        type: 'success',
+        title: `Modification réussie`,
+        description: `Le médicament "${values.nom}" a bien été modifié.`
+      });
+      toast({
+        title: `Modification réussie`,
+        description: `Le médicament "${values.nom}" a bien été modifié.`
+      });
+    });
     setIsEditDialogOpen(false);
+  }
+
+  function handleDeleteMedication(id: string) {
+    const med = medicationsList.find((m) => m.medicament_id === id);
+    deleteMedication(id).then(() => {
+      setMedicationsList((list) => list.filter(m => m.medicament_id !== id));
+      addNotification({
+        type: 'success',
+        title: `Suppression réussie`,
+        description: `Le médicament "${med?.nom || ''}" a bien été supprimé.`
+      });
+      toast({
+        title: `Suppression réussie`,
+        description: `Le médicament "${med?.nom || ''}" a bien été supprimé.`
+      });
+    });
+    setMedicationToDelete(null);
   }
 
   const handleEditClick = (medication: Medication) => {
@@ -141,17 +220,12 @@ export default function MedicamentsPage() {
     setIsEditDialogOpen(true);
   };
 
-  function handleDeleteMedication(id: string) {
-    deleteMedication(id).then(() => setMedicationsList((list) => list.filter(m => m.medicament_id !== id)));
-    setMedicationToDelete(null);
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-8 gap-6">
         <div className="flex items-center">
           <Pill className="h-6 w-6 mr-2" />
-          <h1 className="text-2xl font-bold tracking-tight">Gestion des médicaments</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Médicaments</h1>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
@@ -160,9 +234,9 @@ export default function MedicamentsPage() {
               Ajouter un médicament
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Ajouter un nouveau médicament</DialogTitle>
+              <DialogTitle>Ajouter un médicament</DialogTitle>
             </DialogHeader>
             <MedicationForm
               onSubmit={handleAddMedication}
@@ -206,7 +280,7 @@ export default function MedicamentsPage() {
       </Dialog>
 
       {/* Delete confirmation dialog */}
-      <AlertDialog open={!!medicationToDelete} onOpenChange={(open) => !open && setMedicationToDelete(null)}>
+      <AlertDialog open={!!medicationToDelete} onOpenChange={(open: boolean) => !open && setMedicationToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>

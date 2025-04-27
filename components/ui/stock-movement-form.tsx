@@ -58,6 +58,7 @@ export function StockMovementForm({
 }: StockMovementFormProps) {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [medications, setMedications] = useState<Medication[]>([]);
+  const [typeMouvement, setTypeMouvement] = useState<string>("entrée");
 
   useEffect(() => {
     getMedications().then(setMedications);
@@ -73,8 +74,31 @@ export function StockMovementForm({
     },
   });
 
+  const selectedMedicament = medications.find(
+    (m) => m.medicament_id === form.watch('medicament_id')
+  );
+
   function handleSubmit(values: z.infer<typeof formSchema>) {
+    const selectedMedicament = medications.find(
+      (m) => String(m.medicament_id) === values.medicament_id
+    );
+
+    if (values.type_mouvement === "sortie") {
+      if (!selectedMedicament || values.quantite > selectedMedicament.stock) {
+        form.setError("quantite", {
+          type: "manual",
+          message: `Vous ne pouvez pas sortir plus de ${selectedMedicament?.stock ?? 0} unités.`,
+        });
+        return;
+      }
+    }
+
     onSubmit(values);
+  }
+
+  function handleTypeMouvementChange(value: "entrée" | "sortie") {
+    setTypeMouvement(value);
+    form.setValue("type_mouvement", value);
   }
 
   return (
@@ -89,7 +113,7 @@ export function StockMovementForm({
                 <FormLabel>Médicament</FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  value={field.value}
+                  value={field.value || ""}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -98,13 +122,21 @@ export function StockMovementForm({
                   </FormControl>
                   <SelectContent>
                     {medications.map((med) => (
-                      <SelectItem key={med.medicament_id} value={med.medicament_id}>
+                      <SelectItem key={med.medicament_id} value={String(med.medicament_id)}>
                         {med.nom}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
+                {!field.value && (
+                  <div className="text-xs text-red-600 mt-2">Veuillez choisir un médicament</div>
+                )}
+                {typeMouvement === "sortie" && selectedMedicament && (
+                  <div className="text-xs text-muted-foreground mt-2">
+                    Stock disponible : <span className={selectedMedicament.stock < 10 ? "text-red-600" : "text-foreground"}>{selectedMedicament.stock}</span>
+                  </div>
+                )}
               </FormItem>
             )}
           />
@@ -117,7 +149,7 @@ export function StockMovementForm({
                 <FormLabel>Type de mouvement</FormLabel>
                 <FormControl>
                   <RadioGroup
-                    onValueChange={field.onChange}
+                    onValueChange={handleTypeMouvementChange}
                     value={field.value}
                     className="flex flex-col space-y-1"
                   >
@@ -143,15 +175,25 @@ export function StockMovementForm({
           <FormField
             control={form.control}
             name="quantite"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Quantité</FormLabel>
-                <FormControl>
-                  <Input type="number" min="1" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              const max = typeMouvement === "sortie" && selectedMedicament ? selectedMedicament.stock : undefined;
+              return (
+                <FormItem>
+                  <FormLabel>Quantité</FormLabel>
+                  <FormControl>
+                    <Input type="number" min="1" max={max} {...field} />
+                  </FormControl>
+                  {typeMouvement === "sortie" && selectedMedicament && (
+                    <div className="text-xs text-red-600 mt-1">
+                      {selectedMedicament.stock === 0
+                        ? "Aucun stock disponible pour ce médicament."
+                        : `Vous ne pouvez pas sortir plus de ${selectedMedicament.stock} unités.`}
+                    </div>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
 
           <FormField
@@ -201,7 +243,7 @@ export function StockMovementForm({
           <Button type="button" variant="outline" onClick={onCancel}>
             Annuler
           </Button>
-          <Button type="submit">
+          <Button type="submit" disabled={!form.watch("medicament_id") || form.formState.isSubmitting}>
             Enregistrer le mouvement
           </Button>
         </div>

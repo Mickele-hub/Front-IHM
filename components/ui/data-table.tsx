@@ -54,6 +54,11 @@ export function DataTable<TData, TValue>({
       sorting,
       columnFilters,
     },
+    initialState: {
+      pagination: {
+        pageSize: 8,
+      },
+    },
   });
 
   return (
@@ -121,7 +126,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
+      <div className="flex items-center justify-center gap-2 py-4">
         <Button
           variant="outline"
           size="sm"
@@ -131,6 +136,16 @@ export function DataTable<TData, TValue>({
           <ChevronLeft className="h-4 w-4 mr-1" />
           Précédent
         </Button>
+        {Array.from({ length: table.getPageCount() }).map((_, idx) => (
+          <Button
+            key={idx}
+            variant={table.getState().pagination.pageIndex === idx ? "default" : "outline"}
+            size="sm"
+            onClick={() => table.setPageIndex(idx)}
+          >
+            {idx + 1}
+          </Button>
+        ))}
         <Button
           variant="outline"
           size="sm"

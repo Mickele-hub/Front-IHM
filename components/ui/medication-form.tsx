@@ -73,7 +73,10 @@ export function MedicationForm({
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   useEffect(() => {
-    getSuppliers().then(setSuppliers);
+    getSuppliers().then((data) => {
+      // Correction : s'assurer que fournisseur_id est toujours une string
+      setSuppliers(data.map(s => ({ ...s, fournisseur_id: String(s.fournisseur_id) })));
+    });
   }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -84,13 +87,31 @@ export function MedicationForm({
       categorie: medication?.categorie || "",
       stock: medication?.stock || 0,
       prix: medication?.prix || 0,
-      fournisseur_id: medication?.fournisseur_id || "",
-      date_expiration: medication?.date_expiration ? new Date(medication.date_expiration) : undefined,
+      fournisseur_id: medication?.fournisseur_id
+        ? String(medication.fournisseur_id)
+        : medication?.fournisseur?.fournisseur_id
+          ? String(medication.fournisseur.fournisseur_id)
+          : "",
+      date_expiration: medication?.date_expiration
+        ? (typeof medication.date_expiration === "string"
+            ? new Date(medication.date_expiration)
+            : medication.date_expiration)
+        : undefined,
     },
   });
 
   function handleSubmit(values: z.infer<typeof formSchema>) {
-    onSubmit(values);
+    if (medication) {
+      const modifs = {
+        stock: values.stock,
+        prix: values.prix,
+        date_expiration: values.date_expiration,
+        fournisseur_id: values.fournisseur_id,
+      };
+      onSubmit(modifs as any);
+    } else {
+      onSubmit(values);
+    }
   }
 
   return (
@@ -104,7 +125,7 @@ export function MedicationForm({
               <FormItem>
                 <FormLabel>Nom du médicament</FormLabel>
                 <FormControl>
-                  <Input placeholder="Paracétamol 500mg" {...field} />
+                  <Input placeholder="Paracétamol 500mg" {...field} disabled={!!medication} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -118,7 +139,7 @@ export function MedicationForm({
               <FormItem>
                 <FormLabel>Référence</FormLabel>
                 <FormControl>
-                  <Input placeholder="PCM500" {...field} />
+                  <Input placeholder="PCM500" {...field} disabled={!!medication} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -132,7 +153,7 @@ export function MedicationForm({
               <FormItem>
                 <FormLabel>Catégorie</FormLabel>
                 <FormControl>
-                  <Input placeholder="Analgésique" {...field} />
+                  <Input placeholder="Analgésique" {...field} disabled={!!medication} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -146,7 +167,7 @@ export function MedicationForm({
               <FormItem>
                 <FormLabel>Quantité en stock</FormLabel>
                 <FormControl>
-                  <Input type="number" min="0" {...field} readOnly={!!medication} />
+                  <Input type="number" min="0" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -217,7 +238,7 @@ export function MedicationForm({
                 <FormLabel>Fournisseur</FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  value={field.value}
+                  value={field.value || ""}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -226,13 +247,16 @@ export function MedicationForm({
                   </FormControl>
                   <SelectContent>
                     {suppliers.map((supplier) => (
-                      <SelectItem key={supplier.fournisseur_id} value={supplier.fournisseur_id}>
+                      <SelectItem key={supplier.fournisseur_id} value={String(supplier.fournisseur_id)}>
                         {supplier.nom}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
+                {!field.value && (
+                  <div className="text-xs text-red-600 mt-2">Veuillez choisir un fournisseur</div>
+                )}
               </FormItem>
             )}
           />
@@ -242,7 +266,7 @@ export function MedicationForm({
           <Button type="button" variant="outline" onClick={onCancel}>
             Annuler
           </Button>
-          <Button type="submit">
+          <Button type="submit" disabled={!form.watch("fournisseur_id") || form.formState.isSubmitting}>
             {medication ? "Modifier" : "Ajouter"} le médicament
           </Button>
         </div>
