@@ -29,22 +29,22 @@ export function SidebarNav({ className }: SidebarNavProps) {
 
   const routes = [
     {
-      href: "/",
+      href: "/teste",
       icon: LayoutDashboard,
       title: "Tableau de bord",
     },
     {
-      href: "/medicaments",
+      href: "/teste/medicaments",
       icon: Pill,
       title: "Médicaments",
     },
     {
-      href: "/mouvements",
+      href: "/teste/mouvements",
       icon: PackageSearch,
       title: "Mouvements",
     },
     {
-      href: "/fournisseurs",
+      href: "/teste/fournisseurs",
       icon: TruckIcon,
       title: "Fournisseurs",
     },
